@@ -130,8 +130,8 @@ if st.session_state.ndvi_map is not None:
     st.sidebar.success(f"Data di scatto: {st.session_state.legenda_info['data']}")
     st.sidebar.info(f"Copertura nuvolosa reale: {st.session_state.legenda_info['cloud']:.2f}%")
     
-        col1, col2 = st.columns(2)
-with col1:
+    col1, col2 = st.columns(2)
+    with col1:
         # 保管庫の画像データを使って、安全に地図を再構築して表示
         m_render = folium.Map(location=[lat, lon], zoom_start=zoom_val, tiles="OpenStreetMap")
         img_bounds = [[lat - delta, lon - delta], [lat + delta, lon + delta]]
@@ -149,7 +149,7 @@ with col1:
         # 安全な地図を表示
         st_folium(m_render, width=800, height=600, key="fixed_ndvi_map")
 
-with col2:
+   with col2:
         st.markdown("### 🎨 Legenda (Come leggere l'NDVI)")
         st.markdown("🟩 **Verde (0.6〜0.8):** Vegetazione molto vigorosa")
         st.markdown("🟨 **Giallo (0.3〜0.5):** Vegetazione moderata")
