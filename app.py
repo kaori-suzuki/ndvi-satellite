@@ -149,7 +149,7 @@ if st.session_state.ndvi_map is not None:
         # 安全な地図を表示
         st_folium(m_render, width=800, height=600, key="fixed_ndvi_map")
 
-   with col2:
+    with col2:
         st.markdown("### 🎨 Legenda (Come leggere l'NDVI)")
         st.markdown("🟩 **Verde (0.6〜0.8):** Vegetazione molto vigorosa")
         st.markdown("🟨 **Giallo (0.3〜0.5):** Vegetazione moderata")
