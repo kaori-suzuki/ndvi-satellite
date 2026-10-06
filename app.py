@@ -23,7 +23,7 @@ area_scelta = st.sidebar.radio(
     options=[
         "📍 Provincia di Bologna ",
         "🌾 Emilia-Romagna ",
-        "🇮🇹 Italia "
+        "🇮🇹 Italia (Copertura Nazionale)"
     ],
     label_visibility="collapsed"
 )
@@ -130,7 +130,7 @@ if st.session_state.ndvi_map is not None:
     st.sidebar.success(f"Data di scatto: {st.session_state.legenda_info['data']}")
     st.sidebar.info(f"Copertura nuvolosa reale: {st.session_state.legenda_info['cloud']:.2f}%")
     
-    col1, col2 = st.columns()
+    col1, col2 = st.columns(2)
     with col1:
         st_folium(st.session_state.ndvi_map, width=800, height=600, key="fixed_ndvi_map")
     with col2:
