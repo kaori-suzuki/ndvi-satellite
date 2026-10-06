@@ -77,7 +77,7 @@ if st.sidebar.button("Ottieni Dati Satellitari e Mappa"):
                 # 3. データの読み込み（[latest_item] というリスト形式で渡す）
                 bbox = [lon - delta, lat - delta, lon + delta, lat + delta]
                 res_val = 30 if delta > 0.2 else 10
-                data = odc.stac.load([latest_item], bands=["red", "nir"], bbox=bbox, resolution=res_val)
+                data = odc.stac.load(latest_item, bands=["red", "nir"], bbox=bbox, resolution=res_val)
                 
                 # 4. NDVIの計算
                 red = data.red.values.astype(float)
