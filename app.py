@@ -65,7 +65,7 @@ if st.sidebar.button("Ottieni Dati Satellitari e Mappa"):
                 
                 # 5. Mappatura dei colori: Rosso (Nessuna vegetazione) -> Giallo -> Verde (Vegetazione vigorosa)
                 norm = colors.Normalize(vmin=0.0, vmax=0.8)
-                cmap = cm.get_cmap('RdYlGn') # Mappa dei colori Red-Yellow-Green
+                cmap = cm.colormaps.get_cmap('RdYlGn') # Mappa dei colori Red-Yellow-Green
                 
                 # Conversione in dati immagine RGBA
                 ndvi_rgba = cmap(norm(ndvi))
