@@ -1,0 +1,8 @@
+streamlit
+pystac-client
+odc-stac
+rasterio
+numpy
+folium
+streamlit-folium
+matplotlib
