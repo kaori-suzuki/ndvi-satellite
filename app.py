@@ -130,8 +130,8 @@ if st.session_state.ndvi_map is not None:
     st.sidebar.success(f"Data di scatto: {st.session_state.legenda_info['data']}")
     st.sidebar.info(f"Copertura nuvolosa reale: {st.session_state.legenda_info['cloud']:.2f}%")
     
-   col1, col2 = st.columns(2)
-   with col1:
+    col1, col2 = st.columns(2)
+    with col1:
         # 地図のズームや移動を記憶して、フリーズ（リセット）を防ぐ仕組み
         current_lat = st.session_state.get("map_center_lat", lat)
         current_lon = st.session_state.get("map_center_lon", lon)
