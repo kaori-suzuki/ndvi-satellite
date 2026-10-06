@@ -77,7 +77,7 @@ if st.sidebar.button("Ottieni Dati Satellitari e Mappa"):
                 # 3. データの読み込み（[latest_item] というリスト形式で渡す）
                 bbox = [lon - delta, lat - delta, lon + delta, lat + delta]
                 res_val = 30 if delta > 0.2 else 10
-                data = odc.stac.load(latest_item, bands=["red", "nir"], bbox=bbox, resolution=res_val)
+                data = odc.stac.load([latest_item], bands=["red", "nir"], bbox=bbox, resolution=res_val)
                 
                 # 4. NDVIの計算
                 red = data.red.values.astype(float)
@@ -115,13 +115,13 @@ if st.sidebar.button("Ottieni Dati Satellitari e Mappa"):
                 folium.Marker([lat, lon], popup="Centro analisi").add_to(m)
                 folium.LayerControl().add_to(m)
                 
-                # 保管庫に保存する
-                st.session_state.ndvi_map = m
+                               # 保管庫に保存する（地図ではなく画像データを保存する形に変更）
+                st.session_state.ndvi_map = ndvi_rgba
                 st.session_state.legenda_info = {
                     "data": latest_item.properties['datetime'][:10],
                     "cloud": latest_item.properties['eo:cloud_cover']
                 }
-                    
+ 
         except Exception as e:
             st.error(f"Si è verificato un errore: {e}")
 
@@ -130,10 +130,26 @@ if st.session_state.ndvi_map is not None:
     st.sidebar.success(f"Data di scatto: {st.session_state.legenda_info['data']}")
     st.sidebar.info(f"Copertura nuvolosa reale: {st.session_state.legenda_info['cloud']:.2f}%")
     
-    col1, col2 = st.columns(2)
-    with col1:
-        st_folium(st.session_state.ndvi_map, width=800, height=600, key="fixed_ndvi_map")
-    with col2:
+        col1, col2 = st.columns(2)
+with col1:
+        # 保管庫の画像データを使って、安全に地図を再構築して表示
+        m_render = folium.Map(location=[lat, lon], zoom_start=zoom_val, tiles="OpenStreetMap")
+        img_bounds = [[lat - delta, lon - delta], [lat + delta, lon + delta]]
+        
+        folium.raster_layers.ImageOverlay(
+            image=st.session_state.ndvi_map,
+            bounds=img_bounds,
+            opacity=0.7,
+            name="Indice di Vegetazione NDVI"
+        ).add_to(m_render)
+        
+        folium.Marker([lat, lon], popup="Centro analisi").add_to(m_render)
+        folium.LayerControl().add_to(m_render)
+        
+        # 安全な地図を表示
+        st_folium(m_render, width=800, height=600, key="fixed_ndvi_map")
+
+with col2:
         st.markdown("### 🎨 Legenda (Come leggere l'NDVI)")
         st.markdown("🟩 **Verde (0.6〜0.8):** Vegetazione molto vigorosa")
         st.markdown("🟨 **Giallo (0.3〜0.5):** Vegetazione moderata")
