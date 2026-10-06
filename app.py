@@ -27,7 +27,7 @@ if st.sidebar.button("Ottieni Dati Satellitari e Mappa"):
         try:
             # 2. Connessione al catalogo di dati satellitari Microsoft Planetary Computer
             catalog = Client.open(
-                "https://microsoft.com",
+                "https://planetarycomputer.microsoft.com/api/stac/v1",
                 modifier=planetary_computer.sign_inplace
             )
             point = {"type": "Point", "coordinates": [lon, lat]}
