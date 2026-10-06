@@ -8,6 +8,7 @@ import matplotlib.cm as cm
 import matplotlib.colors as colors
 import planetary_computer
 from datetime import datetime, timedelta
+import matplotlib.pyplot as plt
 
 st.set_page_config(layout="wide")
 st.title("🛰️ NDVI Mapper - Dati Satellitari in Tempo Reale")
@@ -16,7 +17,7 @@ st.write("Questa applicazione acquisisce automaticamente gli ultimi dati del sat
 # 1. Input dell'utente (Sidebar)
 st.sidebar.header("🔍 Impostazioni")
 
-# あなたが提示してくれた選択肢の作成
+# あなたが提示してくれたエリア選択のデザイン
 st.sidebar.write("### Scegli l'estensione geografica per l'analisi del suolo:")
 area_scelta = st.sidebar.radio(
     label="Seleziona un'area:",
@@ -25,29 +26,29 @@ area_scelta = st.sidebar.radio(
         "🌾 Emilia-Romagna (Carbon Farming Test)",
         "🇮🇹 Italia (Copertura Nazionale - Intero Paese)"
     ],
-    label_visibility="collapsed" # ラジオボタン自体のタイトルは隠してすっきりさせる
+    label_visibility="collapsed"
 )
 
-# 選ばれたエリアに応じて、中心点（緯度・経度）と地図の大きさを自動切り替え
+# 選ばれたエリアに応じて、中心点（緯度・経度）と地図の表示サイズを自動決定
 if area_scelta == "📍 Provincia di Bologna (Area di Ricerca e Ground Truth)":
     lat = 44.5222
     lon = 11.2727
-    zoom_val = 13  # 狭い範囲（町レベル）
+    zoom_val = 13  
     delta = 0.02   # 約5km四方
 elif area_scelta == "🌾 Emilia-Romagna (Carbon Farming Test)":
     lat = 44.4949
     lon = 11.3426
-    zoom_val = 9   # 中くらいの範囲（州レベル）
+    zoom_val = 9   
     delta = 0.15   # 約35km四方
 else:
     lat = 42.5042
     lon = 12.5222
-    zoom_val = 6   # 広い範囲（イタリア全土）
-    delta = 0.5    # 広範囲
+    zoom_val = 6   
+    delta = 0.4    # 広範囲（イタリア全土を見渡す用）
 
 cloud_limit = st.sidebar.slider("Copertura nuvolosa massima (%)", 0, 100, 40)
 
-# 自動で直近3ヶ月のデータを検索
+# 自動で直近3ヶ月のデータを検索する設定（2026年10月現在に対応）
 oggi = datetime.now()
 tre_mesi_fa = oggi - timedelta(days=90)
 date_range = f"{tre_mesi_fa.strftime('%Y-%m-%d')}/{oggi.strftime('%Y-%m-%d')}"
@@ -76,14 +77,16 @@ if st.sidebar.button("Ottieni Dati Satellitari e Mappa"):
             if len(items) == 0:
                 st.error("Nessun dato recente trovato. Prova ad aumentare la 'Copertura nuvolosa massima'.")
             else:
-                latest_item = items
+                # 【★修正箇所】リストから「最初の1枚」を正しく取り出す
+                latest_item = items[0]
+                
                 st.sidebar.success(f"Data di scatto: {latest_item.properties['datetime'][:10]}")
                 st.sidebar.info(f"Copertura nuvolosa reale: {latest_item.properties['eo:cloud_cover']:.2f}%")
                 
                 # 3. 選択された範囲に応じて切り出しサイズを変更
                 bbox = [lon - delta, lat - delta, lon + delta, lat + delta]
                 
-                # 広範囲の場合は解像度を少し粗く(30m)して速度を爆速にする
+                # 広い範囲の場合は解像度を少し粗く(30m)して速度を爆速にする
                 res_val = 30 if delta > 0.2 else 10
                 data = odc.stac.load([latest_item], bands=["red", "nir"], bbox=bbox, resolution=res_val)
                 
@@ -91,12 +94,20 @@ if st.sidebar.button("Ottieni Dati Satellitari e Mappa"):
                 red = data.red.values.astype(float)
                 nir = data.nir.values.astype(float)
                 
+                # 時間軸(Time)の次元が含まれている場合は潰す処理
+                if len(red.shape) == 3:
+                    red = red[0]
+                    nir = nir[0]
+                
                 ndvi = (nir - red) / (nir + red + 1e-10)
                 ndvi = np.clip(ndvi, -1.0, 1.0)
                 
-                # 5. Mappatura dei colori (修正済み最新版)
+                # 5. Mappatura dei colori（新旧バージョン対応の絶対安全コード）
                 norm = colors.Normalize(vmin=0.0, vmax=0.8)
-                cmap = st.pyplot.matplotlib.colormaps.get_cmap('RdYlGn') if hasattr(st, 'pyplot') else cm.get_cmap('RdYlGn')
+                try:
+                    cmap = plt.get_cmap('RdYlGn')
+                except Exception:
+                    cmap = cm.get_cmap('RdYlGn')
                 
                 ndvi_rgba = cmap(norm(ndvi))
                 ndvi_rgba = (ndvi_rgba * 255).astype(np.uint8)
@@ -116,7 +127,7 @@ if st.sidebar.button("Ottieni Dati Satellitari e Mappa"):
                 folium.LayerControl().add_to(m)
                 
                 # 7. Visualizzazione in Streamlit
-                col1, col2 = st.columns()
+                col1, col2 = st.columns([3, 1])
                 with col1:
                     st_folium(m, width=800, height=600)
                 with col2:
