@@ -92,7 +92,7 @@ if st.sidebar.button("Ottieni Dati Satellitari e Mappa"):
                 ndvi = np.clip(ndvi, -1.0, 1.0)
                 
                 # 5. カラーマッピング（新旧対応の絶対安全コード）
-                norm = colors.Normalize(vmin=0.0, vmax=0.8)
+                norm = colors.Normalize(vmin=0.1, vmax=0.5)
                 try:
                     cmap = plt.get_cmap('RdYlGn')
                 except Exception:
@@ -130,24 +130,36 @@ if st.session_state.ndvi_map is not None:
     st.sidebar.success(f"Data di scatto: {st.session_state.legenda_info['data']}")
     st.sidebar.info(f"Copertura nuvolosa reale: {st.session_state.legenda_info['cloud']:.2f}%")
     
-    col1, col2 = st.columns(2)
-    with col1:
-        # 保管庫の画像データを使って、安全に地図を再構築して表示
-        m_render = folium.Map(location=[lat, lon], zoom_start=zoom_val, tiles="OpenStreetMap")
+        col1, col2 = st.columns(2)
+   with col1:
+        # 地図のズームや移動を記憶して、フリーズ（リセット）を防ぐ仕組み
+        current_lat = st.session_state.get("map_center_lat", lat)
+        current_lon = st.session_state.get("map_center_lon", lon)
+        current_zoom = st.session_state.get("map_zoom", zoom_val)
+        
+        m_render = folium.Map(location=[current_lat, current_lon], zoom_start=current_zoom, tiles="OpenStreetMap")
         img_bounds = [[lat - delta, lon - delta], [lat + delta, lon + delta]]
         
         folium.raster_layers.ImageOverlay(
             image=st.session_state.ndvi_map,
             bounds=img_bounds,
-            opacity=0.7,
+            opacity=0.6,  # 衛星データの下の実際の地図が少し透けて見えるように調整
             name="Indice di Vegetazione NDVI"
         ).add_to(m_render)
         
+        # 📍 中心点のマーク（これも地図の移動に合わせて一緒に動くように設定）
         folium.Marker([lat, lon], popup="Centro analisi").add_to(m_render)
         folium.LayerControl().add_to(m_render)
         
-        # 安全な地図を表示
-        st_folium(m_render, width=800, height=600, key="fixed_ndvi_map")
+        # 地図の動きをStreamlitにリアルタイムに報告させる
+        map_output = st_folium(m_render, width=800, height=600, key="interactive_ndvi_map")
+        
+        # ユーザーが地図を動かしたら、その新しい位置を記憶する
+        if map_output and map_output.get("center"):
+            st.session_state["map_center_lat"] = map_output["center"]["lat"]
+            st.session_state["map_center_lon"] = map_output["center"]["lng"]
+            st.session_state["map_zoom"] = map_output["zoom"]
+
 
     with col2:
         st.markdown("### 🎨 Legenda (Come leggere l'NDVI)")
