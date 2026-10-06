@@ -33,7 +33,7 @@ if area_scelta == "📍 Provincia di Bologna":
     lat, lon, zoom_val, delta = 44.5222, 11.2727, 13, 0.02
 elif area_scelta == "🌾 Emilia-Romagna":
     lat, lon, zoom_val, delta = 44.4949, 11.3426, 9, 0.15
-else: area_scelta == "🇮🇹 Italia"
+else: area_scelta == "🇮🇹 Italia":
     lat, lon, zoom_val, delta = 42.5042, 12.5222, 6, 0.4
 
 cloud_limit = st.sidebar.slider("Copertura nuvolosa massima (%)", 0, 100, 40)
