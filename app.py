@@ -21,24 +21,24 @@ st.sidebar.write("### Scegli l'estensione geografica per l'analisi del suolo:")
 area_scelta = st.sidebar.radio(
     label="Seleziona un'area:",
     options=[
-        "📍 Provincia di Bologna",
-        "🌾 Emilia-Romagna",
-        "🇮🇹 Italia"
+        "📍 Provincia di Bologna ",
+        "🌾 Emilia-Romagna ",
+        "🇮🇹 Italia "
     ],
     label_visibility="collapsed"
 )
 
-# エリアに応じた設定
-if area_scelta == "📍 Provincia di Bologna":
+# エリアに応じた設定（スペースの数を完全に統一）
+if area_scelta == "📍 Provincia di Bologna ":
     lat, lon, zoom_val, delta = 44.5222, 11.2727, 13, 0.02
-elif area_scelta == "🌾 Emilia-Romagna":
+elif area_scelta == "🌾 Emilia-Romagna ":
     lat, lon, zoom_val, delta = 44.4949, 11.3426, 9, 0.15
-else: 
+else:
     lat, lon, zoom_val, delta = 42.5042, 12.5222, 6, 0.4
 
 cloud_limit = st.sidebar.slider("Copertura nuvolosa massima (%)", 0, 100, 40)
 
-# 画面が消えるのを防ぐためのデータ保管庫（Session State）の準備
+# 画面が消えるのを防ぐ保管庫の準備
 if "ndvi_map" not in st.session_state:
     st.session_state.ndvi_map = None
 if "legenda_info" not in st.session_state:
@@ -71,25 +71,27 @@ if st.sidebar.button("Ottieni Dati Satellitari e Mappa"):
             if len(items) == 0:
                 st.error("Nessun dato recente trovato. Prova ad aumentare la 'Copertura nuvolosa massima'.")
             else:
-                latest_item = items
+                # 【★ここを完全に修正！】リストの「最初の1枚」を確実に指定する
+                latest_item = items[0]
                 
-                # 3. データ読み込み
+                # 3. データの読み込み（[latest_item] というリスト形式で渡す）
                 bbox = [lon - delta, lat - delta, lon + delta, lat + delta]
                 res_val = 30 if delta > 0.2 else 10
                 data = odc.stac.load([latest_item], bands=["red", "nir"], bbox=bbox, resolution=res_val)
                 
+                # 4. NDVIの計算
                 red = data.red.values.astype(float)
                 nir = data.nir.values.astype(float)
                 
+                # 3次元配列から時間軸を潰す処理
                 if len(red.shape) == 3:
-                    red = red
-                    nir = nir
+                    red = red[0]
+                    nir = nir[0]
                 
-                # 4. NDVIの計算
                 ndvi = (nir - red) / (nir + red + 1e-10)
                 ndvi = np.clip(ndvi, -1.0, 1.0)
                 
-                # 5. カラーマッピング
+                # 5. カラーマッピング（新旧対応の絶対安全コード）
                 norm = colors.Normalize(vmin=0.0, vmax=0.8)
                 try:
                     cmap = plt.get_cmap('RdYlGn')
@@ -113,7 +115,7 @@ if st.sidebar.button("Ottieni Dati Satellitari e Mappa"):
                 folium.Marker([lat, lon], popup="Centro analisi").add_to(m)
                 folium.LayerControl().add_to(m)
                 
-                # 【★重要】一瞬で消えないように、完成した地図を保管庫に保存する
+                # 保管庫に保存する
                 st.session_state.ndvi_map = m
                 st.session_state.legenda_info = {
                     "data": latest_item.properties['datetime'][:10],
@@ -123,14 +125,13 @@ if st.sidebar.button("Ottieni Dati Satellitari e Mappa"):
         except Exception as e:
             st.error(f"Si è verificato un errore: {e}")
 
-# 保管庫に地図が入っていれば、画面がリロードされても消さずにずっと表示し続ける
+# 保管庫にデータがあれば表示を維持する
 if st.session_state.ndvi_map is not None:
     st.sidebar.success(f"Data di scatto: {st.session_state.legenda_info['data']}")
     st.sidebar.info(f"Copertura nuvolosa reale: {st.session_state.legenda_info['cloud']:.2f}%")
     
     col1, col2 = st.columns()
     with col1:
-        # 地図の動きで画面がリセットされるのを防ぐ設定（keyを固定）
         st_folium(st.session_state.ndvi_map, width=800, height=600, key="fixed_ndvi_map")
     with col2:
         st.markdown("### 🎨 Legenda (Come leggere l'NDVI)")
@@ -138,6 +139,3 @@ if st.session_state.ndvi_map is not None:
         st.markdown("🟨 **Giallo (0.3〜0.5):** Vegetazione moderata")
         st.markdown("🟥 **Rosso (0.0〜0.2):** Quasi nessuna vegetazione")
         st.markdown("🟦 **(Blu / Rosso scuro):** Superfici d'acqua o ombre")
-
-
-            
