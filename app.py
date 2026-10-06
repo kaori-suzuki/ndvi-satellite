@@ -17,45 +17,35 @@ st.write("Questa applicazione acquisisce automaticamente gli ultimi dati del sat
 # 1. Input dell'utente (Sidebar)
 st.sidebar.header("🔍 Impostazioni")
 
-# あなたが提示してくれたエリア選択のデザイン
 st.sidebar.write("### Scegli l'estensione geografica per l'analisi del suolo:")
 area_scelta = st.sidebar.radio(
     label="Seleziona un'area:",
     options=[
-        "📍 Provincia di Bologna (Area di Ricerca e Ground Truth)",
-        "🌾 Emilia-Romagna (Carbon Farming Test)",
-        "🇮🇹 Italia (Copertura Nazionale - Intero Paese)"
+        "📍 Provincia di Bologna",
+        "🌾 Emilia-Romagna",
+        "🇮🇹 Italia"
     ],
     label_visibility="collapsed"
 )
 
-# 選ばれたエリアに応じて、中心点（緯度・経度）と地図の表示サイズを自動決定
-if area_scelta == "📍 Provincia di Bologna (Area di Ricerca e Ground Truth)":
-    lat = 44.5222
-    lon = 11.2727
-    zoom_val = 13  
-    delta = 0.02   # 約5km四方
-elif area_scelta == "🌾 Emilia-Romagna (Carbon Farming Test)":
-    lat = 44.4949
-    lon = 11.3426
-    zoom_val = 9   
-    delta = 0.15   # 約35km四方
-else:
-    lat = 42.5042
-    lon = 12.5222
-    zoom_val = 6   
-    delta = 0.4    # 広範囲（イタリア全土を見渡す用）
+# エリアに応じた設定
+if area_scelta == "📍 Provincia di Bologna":
+    lat, lon, zoom_val, delta = 44.5222, 11.2727, 13, 0.02
+elif area_scelta == "🌾 Emilia-Romagna":
+    lat, lon, zoom_val, delta = 44.4949, 11.3426, 9, 0.15
+else: area_scelta == "🇮🇹 Italia"
+    lat, lon, zoom_val, delta = 42.5042, 12.5222, 6, 0.4
 
 cloud_limit = st.sidebar.slider("Copertura nuvolosa massima (%)", 0, 100, 40)
 
-# 自動で直近3ヶ月のデータを検索する設定（2026年10月現在に対応）
-oggi = datetime.now()
-tre_mesi_fa = oggi - timedelta(days=90)
-date_range = f"{tre_mesi_fa.strftime('%Y-%m-%d')}/{oggi.strftime('%Y-%m-%d')}"
+# 画面が消えるのを防ぐためのデータ保管庫（Session State）の準備
+if "ndvi_map" not in st.session_state:
+    st.session_state.ndvi_map = None
+if "legenda_info" not in st.session_state:
+    st.session_state.legenda_info = None
 
 if st.sidebar.button("Ottieni Dati Satellitari e Mappa"):
     with st.spinner("Download dei dati più recenti dallo spazio e calcolo dell'NDVI in corso..."):
-        
         try:
             # 2. Connessione al catalogo Microsoft
             catalog = Client.open(
@@ -63,6 +53,10 @@ if st.sidebar.button("Ottieni Dati Satellitari e Mappa"):
                 modifier=planetary_computer.sign_inplace
             )
             point = {"type": "Point", "coordinates": [lon, lat]}
+            
+            oggi = datetime.now()
+            tre_mesi_fa = oggi - timedelta(days=90)
+            date_range = f"{tre_mesi_fa.strftime('%Y-%m-%d')}/{oggi.strftime('%Y-%m-%d')}"
             
             search = catalog.search(
                 collections=["sentinel-2-l2a"],
@@ -77,32 +71,25 @@ if st.sidebar.button("Ottieni Dati Satellitari e Mappa"):
             if len(items) == 0:
                 st.error("Nessun dato recente trovato. Prova ad aumentare la 'Copertura nuvolosa massima'.")
             else:
-                # 【★修正箇所】リストから「最初の1枚」を正しく取り出す
-                latest_item = items[0]
+                latest_item = items
                 
-                st.sidebar.success(f"Data di scatto: {latest_item.properties['datetime'][:10]}")
-                st.sidebar.info(f"Copertura nuvolosa reale: {latest_item.properties['eo:cloud_cover']:.2f}%")
-                
-                # 3. 選択された範囲に応じて切り出しサイズを変更
+                # 3. データ読み込み
                 bbox = [lon - delta, lat - delta, lon + delta, lat + delta]
-                
-                # 広い範囲の場合は解像度を少し粗く(30m)して速度を爆速にする
                 res_val = 30 if delta > 0.2 else 10
                 data = odc.stac.load([latest_item], bands=["red", "nir"], bbox=bbox, resolution=res_val)
                 
-                # 4. Calcolo dell'NDVI
                 red = data.red.values.astype(float)
                 nir = data.nir.values.astype(float)
                 
-                # 時間軸(Time)の次元が含まれている場合は潰す処理
                 if len(red.shape) == 3:
-                    red = red[0]
-                    nir = nir[0]
+                    red = red
+                    nir = nir
                 
+                # 4. NDVIの計算
                 ndvi = (nir - red) / (nir + red + 1e-10)
                 ndvi = np.clip(ndvi, -1.0, 1.0)
                 
-                # 5. Mappatura dei colori（新旧バージョン対応の絶対安全コード）
+                # 5. カラーマッピング
                 norm = colors.Normalize(vmin=0.0, vmax=0.8)
                 try:
                     cmap = plt.get_cmap('RdYlGn')
@@ -112,7 +99,7 @@ if st.sidebar.button("Ottieni Dati Satellitari e Mappa"):
                 ndvi_rgba = cmap(norm(ndvi))
                 ndvi_rgba = (ndvi_rgba * 255).astype(np.uint8)
                 
-                # 6. Creazione della mappa Folium
+                # 6. 地図の作成
                 m = folium.Map(location=[lat, lon], zoom_start=zoom_val, tiles="OpenStreetMap")
                 img_bounds = [[lat - delta, lon - delta], [lat + delta, lon + delta]]
                 
@@ -126,16 +113,31 @@ if st.sidebar.button("Ottieni Dati Satellitari e Mappa"):
                 folium.Marker([lat, lon], popup="Centro analisi").add_to(m)
                 folium.LayerControl().add_to(m)
                 
-                # 7. Visualizzazione in Streamlit
-                col1, col2 = st.columns([3, 1])
-                with col1:
-                    st_folium(m, width=800, height=600)
-                with col2:
-                    st.markdown("### 🎨 Legenda (Come leggere l'NDVI)")
-                    st.markdown("🟩 **Verde (0.6〜0.8):** Vegetazione molto vigorosa")
-                    st.markdown("🟨 **Giallo (0.3〜0.5):** Vegetazione moderata")
-                    st.markdown("🟥 **Rosso (0.0〜0.2):** Quasi nessuna vegetazione")
-                    st.markdown("🟦 **(Blu / Rosso scuro):** Superfici d'acqua o ombre")
+                # 【★重要】一瞬で消えないように、完成した地図を保管庫に保存する
+                st.session_state.ndvi_map = m
+                st.session_state.legenda_info = {
+                    "data": latest_item.properties['datetime'][:10],
+                    "cloud": latest_item.properties['eo:cloud_cover']
+                }
                     
         except Exception as e:
+            st.error(f"Si è verificato un errore: {e}")
+
+# 保管庫に地図が入っていれば、画面がリロードされても消さずにずっと表示し続ける
+if st.session_state.ndvi_map is not None:
+    st.sidebar.success(f"Data di scatto: {st.session_state.legenda_info['data']}")
+    st.sidebar.info(f"Copertura nuvolosa reale: {st.session_state.legenda_info['cloud']:.2f}%")
+    
+    col1, col2 = st.columns()
+    with col1:
+        # 地図の動きで画面がリセットされるのを防ぐ設定（keyを固定）
+        st_folium(st.session_state.ndvi_map, width=800, height=600, key="fixed_ndvi_map")
+    with col2:
+        st.markdown("### 🎨 Legenda (Come leggere l'NDVI)")
+        st.markdown("🟩 **Verde (0.6〜0.8):** Vegetazione molto vigorosa")
+        st.markdown("🟨 **Giallo (0.3〜0.5):** Vegetazione moderata")
+        st.markdown("🟥 **Rosso (0.0〜0.2):** Quasi nessuna vegetazione")
+        st.markdown("🟦 **(Blu / Rosso scuro):** Superfici d'acqua o ombre")
+
+except Exception as e:
             st.error(f"Si è verificato un errore: {e}")
