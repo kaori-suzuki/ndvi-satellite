@@ -139,5 +139,5 @@ if st.session_state.ndvi_map is not None:
         st.markdown("🟥 **Rosso (0.0〜0.2):** Quasi nessuna vegetazione")
         st.markdown("🟦 **(Blu / Rosso scuro):** Superfici d'acqua o ombre")
 
-except Exception as e:
-            st.error(f"Si è verificato un errore: {e}")
+
+            
