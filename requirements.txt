@@ -6,3 +6,4 @@ numpy
 folium
 streamlit-folium
 matplotlib
+planetary-computer
